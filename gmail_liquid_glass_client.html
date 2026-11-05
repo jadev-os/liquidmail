@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gmail Liquid Glass Client</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google Identity Services SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        glass: {
+                            DEFAULT: 'rgba(255, 255, 255, 0.08)',
+                            hover: 'rgba(255, 255, 255, 0.15)',
+                            active: 'rgba(255, 255, 255, 0.22)',
+                            border: 'rgba(255, 255, 255, 0.18)',
+                            card: 'rgba(20, 20, 35, 0.45)',
+                            modal: 'rgba(15, 15, 30, 0.85)'
+                        }
+                    },
+                    animation: {
+                        'gradient-x': 'gradient-x 18s ease infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-glow': 'pulse-glow 4s infinite',
+                    },
+                    keyframes: {
+                        'gradient-x': {
+                            '0%, 100%': { 'background-size': '200% 200%', 'background-position': 'left center' },
+                            '50%': { 'background-size': '200% 200%', 'background-position': 'right center' },
+                        },
+                        'float': {
+                            '0%, 100%': { transform: 'translateY(0px) scale(1)' },
+                            '50%': { transform: 'translateY(-12px) scale(1.02)' },
+                        },
+                        'pulse-glow': {
+                            '0%, 100%': { opacity: '0.35', filter: 'blur(45px)' },
+                            '50%': { opacity: '0.65', filter: 'blur(55px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            color: #f3f4f6;
+            background: #090d16;
+        }
+
+        .liquid-bg {
+            background: linear-gradient(-45deg, #090d16, #1e1b4b, #2e1065, #022c22, #172554);
+            background-size: 400% 400%;
+            animation: gradient-x 20s ease infinite;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-panel-dark {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-input {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .glass-input:focus {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(168, 85, 247, 0.6);
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
+            outline: none;
+        }
+
+        .glass-button {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.04));
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-button:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.1));
+            border-color: rgba(255, 255, 255, 0.35);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+        }
+
+        .glass-button-primary {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.5), rgba(59, 130, 246, 0.5));
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(12px);
+            transition: all 0.3s ease;
+        }
+
+        .glass-button-primary:hover {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.7), rgba(59, 130, 246, 0.7));
+            box-shadow: 0 8px 25px rgba(168, 85, 247, 0.4);
+            transform: translateY(-1px);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.35);
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Glass iframe container to safely render HTML email bodies */
+        #emailBodyIframe {
+            width: 100%;
+            border: none;
+            background: transparent;
+            min-height: 400px;
+        }
+    </style>
+</head>
+<body class="liquid-bg min-h-screen h-screen flex flex-col antialiased selection:bg-purple-500 selection:text-white overflow-hidden">
+
+    <!-- Glowing Liquid Background Orbs -->
+    <div class="orb w-96 h-96 bg-purple-600/30 top-[-100px] left-[-100px] animate-pulse-glow"></div>
+    <div class="orb w-80 h-80 bg-blue-600/30 bottom-[-50px] right-[-50px] animate-pulse-glow" style="animation-delay: 1.5s;"></div>
+    <div class="orb w-72 h-72 bg-pink-600/20 top-[40%] left-[50%] animate-float"></div>
+
+    <!-- MAIN CONTAINER -->
+    <div class="relative z-10 flex flex-col h-full w-full p-2 md:p-4 gap-3 max-w-[1800px] mx-auto">
+
+        <!-- HEADER -->
+        <header class="glass-panel rounded-2xl px-4 py-3 flex items-center justify-between gap-4 shrink-0">
+            <!-- Logo & Brand -->
+            <div class="flex items-center gap-3 min-w-[200px]">
+                <button id="toggleSidebarMobile" class="md:hidden text-gray-300 hover:text-white p-2">
+                    <i class="fa-solid fa-bars text-lg"></i>
+                </button>
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-red-500 via-purple-500 to-blue-500 p-[1px] shadow-lg flex items-center justify-center">
+                        <div class="w-full h-full bg-slate-950/90 rounded-[11px] flex items-center justify-center">
+                            <i class="fa-solid fa-envelope text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-400 text-xl"></i>
+                        </div>
+                    </div>
+                    <span class="font-bold text-xl tracking-tight text-white hidden sm:inline-block">
+                        Gmail <span class="text-xs px-2 py-0.5 rounded-full glass-panel border-purple-500/30 text-purple-300 font-normal">Liquid Glass</span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="flex-1 max-w-2xl relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                <input type="text" id="searchInput" placeholder="Search emails in Gmail..." 
+                    class="w-full glass-input rounded-xl pl-11 pr-10 py-2.5 text-sm text-white placeholder-gray-400 focus:outline-none">
+                <button id="clearSearch" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Header Controls & User Profile -->
+            <div class="flex items-center gap-3">
+                <button id="openSettingsBtn" onclick="openSettingsModal()" class="glass-button p-2.5 rounded-xl text-gray-300 hover:text-white text-sm flex items-center gap-2" title="API Settings">
+                    <i class="fa-solid fa-gear"></i>
+                    <span class="hidden xl:inline text-xs">API Config</span>
+                </button>
+
+                <button id="loginBtn" onclick="handleAuthClick()" class="glass-button rounded-xl px-4 py-2 text-xs md:text-sm font-medium flex items-center gap-2 text-white">
+                    <i class="fa-brands fa-google text-red-400"></i>
+                    <span id="loginBtnText">Sign In with Google</span>
+                </button>
+
+                <div id="userProfile" class="hidden flex items-center gap-3 pl-2 border-l border-white/10">
+                    <img id="userAvatar" src="https://placehold.co/100x100/38155d/ffffff?text=User" 
+                        alt="User Avatar" class="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/50">
+                    <div class="hidden lg:block text-left">
+                        <div id="userName" class="text-xs font-semibold text-white leading-tight">Google User</div>
+                        <div id="userEmail" class="text-[10px] text-gray-400 leading-tight">user@gmail.com</div>
+                    </div>
+                    <button onclick="handleSignoutClick()" class="glass-button p-2 rounded-lg text-rose-400 hover:text-rose-300 text-xs ml-1" title="Sign Out">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN WORKSPACE -->
+        <div class="flex-1 flex gap-3 overflow-hidden relative">
+
+            <!-- SIDEBAR -->
+            <aside id="sidebar" class="glass-panel rounded-2xl w-64 p-3 flex flex-col justify-between shrink-0 transition-all duration-300 absolute md:relative z-30 h-full -translate-x-full md:translate-x-0 bg-slate-950/90 md:bg-transparent">
+                <div class="space-y-4">
+                    <button id="openCompose" onclick="openComposeModal()" class="w-full glass-button-primary rounded-xl py-3 px-4 font-semibold text-white flex items-center justify-center gap-3 shadow-lg group transition-all">
+                        <i class="fa-solid fa-pen text-pink-300 group-hover:rotate-12 transition-transform"></i>
+                        <span>Compose</span>
+                    </button>
+
+                    <!-- Navigation Links -->
+                    <nav class="space-y-1">
+                        <a href="#" onclick="switchFolder('INBOX')" id="nav-INBOX" class="folder-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all bg-white/15 text-white">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-inbox text-purple-400 w-5"></i>
+                                <span>Inbox</span>
+                            </div>
+                        </a>
+
+                        <a href="#" onclick="switchFolder('STARRED')" id="nav-STARRED" class="folder-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-gray-300 hover:bg-white/10 hover:text-white">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-regular fa-star text-yellow-400 w-5"></i>
+                                <span>Starred</span>
+                            </div>
+                        </a>
+
+                        <a href="#" onclick="switchFolder('SENT')" id="nav-SENT" class="folder-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-gray-300 hover:bg-white/10 hover:text-white">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-regular fa-paper-plane text-blue-400 w-5"></i>
+                                <span>Sent</span>
+                            </div>
+                        </a>
+
+                        <a href="#" onclick="switchFolder('DRAFT')" id="nav-DRAFT" class="folder-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-gray-300 hover:bg-white/10 hover:text-white">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-regular fa-file text-emerald-400 w-5"></i>
+                                <span>Drafts</span>
+                            </div>
+                        </a>
+
+                        <a href="#" onclick="switchFolder('TRASH')" id="nav-TRASH" class="folder-link flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-gray-300 hover:bg-white/10 hover:text-white">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-regular fa-trash-can text-rose-400 w-5"></i>
+                                <span>Trash</span>
+                            </div>
+                        </a>
+                    </nav>
+                </div>
+
+                <!-- Footer Status -->
+                <div class="pt-3 border-t border-white/10 text-xs text-gray-400 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span>Status</span>
+                        <span id="apiStatusBadge" class="text-amber-400 font-semibold flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Unauthenticated
+                        </span>
+                    </div>
+                    <div class="text-[10px] text-gray-500 text-center pt-1">
+                        Live Gmail API Integration
+                    </div>
+                </div>
+            </aside>
+
+            <!-- EMAIL LIST PANEL -->
+            <section id="emailListPanel" class="glass-panel rounded-2xl flex-1 flex flex-col overflow-hidden min-w-0 transition-all duration-300">
+                <div class="p-3 border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
+                    <div class="flex items-center gap-2">
+                        <button onclick="refreshEmails()" class="glass-button p-2 rounded-lg text-gray-300 hover:text-white text-xs" title="Refresh">
+                            <i class="fa-solid fa-rotate-right"></i>
+                        </button>
+                        <span id="currentFolderName" class="text-xs font-semibold text-purple-300 uppercase tracking-wider ml-2">INBOX</span>
+                    </div>
+
+                    <div class="flex items-center gap-3 text-xs text-gray-400">
+                        <span id="emailCountDisplay">0 emails</span>
+                    </div>
+                </div>
+
+                <!-- Email List Container -->
+                <div id="emailContainer" class="flex-1 overflow-y-auto divide-y divide-white/5">
+                    <div class="flex flex-col items-center justify-center h-64 text-gray-400 p-6 text-center">
+                        <i class="fa-solid fa-key text-4xl mb-4 text-purple-400 opacity-60"></i>
+                        <p class="text-sm font-medium text-white mb-1">Google Authentication Required</p>
+                        <p class="text-xs text-gray-400 max-w-sm mb-4">Click "Sign In with Google" or configure your Google OAuth Client ID in API Settings to view live emails.</p>
+                        <button onclick="openSettingsModal()" class="glass-button px-4 py-2 rounded-xl text-xs text-purple-300 hover:text-white">
+                            Configure OAuth Client ID
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- EMAIL DETAIL PANEL -->
+            <section id="emailDetailPanel" class="glass-panel-dark rounded-2xl hidden flex-1 flex-col overflow-hidden transition-all duration-300">
+                <div class="p-3 border-b border-white/10 flex items-center justify-between shrink-0">
+                    <button onclick="closeEmailDetail()" class="glass-button px-3 py-1.5 rounded-xl text-xs text-gray-300 hover:text-white flex items-center gap-2">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span>Back</span>
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="toggleStarCurrentDetail()" class="glass-button p-2 rounded-lg text-yellow-400 hover:text-yellow-300 text-xs" title="Star Email">
+                            <i id="detailStarIcon" class="fa-regular fa-star"></i>
+                        </button>
+                        <button onclick="trashCurrentDetail()" class="glass-button p-2 rounded-lg text-rose-400 hover:text-rose-300 text-xs" title="Move to Trash">
+                            <i class="fa-regular fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Email Content View -->
+                <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                    <div>
+                        <div class="flex items-start justify-between gap-4">
+                            <h2 id="detailSubject" class="text-xl font-bold text-white leading-snug">Email Subject</h2>
+                        </div>
+                        <div class="text-xs text-gray-400 mt-1" id="detailDate">Date</div>
+                    </div>
+
+                    <div class="flex items-center gap-3 p-3 rounded-xl glass-panel">
+                        <div class="w-10 h-10 rounded-full bg-purple-600/40 text-purple-200 flex items-center justify-center font-bold text-sm shrink-0" id="detailAvatarText">
+                            G
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div id="detailSenderName" class="text-sm font-semibold text-white">Sender Name</div>
+                            <div id="detailSenderEmail" class="text-xs text-gray-400 truncate">sender@domain.com</div>
+                        </div>
+                        <button onclick="replyToSender()" class="glass-button text-xs px-3 py-1.5 rounded-lg text-purple-300 hover:text-white">
+                            <i class="fa-solid fa-reply mr-1"></i> Reply
+                        </button>
+                    </div>
+
+                    <div class="glass-panel rounded-xl p-4 overflow-hidden">
+                        <iframe id="emailBodyIframe" sandbox="allow-same-origin"></iframe>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- COMPOSE MODAL -->
+    <div id="composeModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-panel-dark w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-white/20 flex flex-col max-h-[90vh]">
+            <div class="px-5 py-3.5 border-b border-white/10 flex items-center justify-between bg-white/5">
+                <h3 class="font-semibold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-pen-nib text-purple-400"></i>
+                    <span>New Message</span>
+                </h3>
+                <button onclick="closeComposeModal()" class="text-gray-400 hover:text-white p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form id="composeForm" onsubmit="handleSendEmail(event)" class="p-5 space-y-4 flex-1 overflow-y-auto">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">To:</label>
+                    <input type="email" id="composeTo" required placeholder="recipient@example.com" 
+                        class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Subject:</label>
+                    <input type="text" id="composeSubject" required placeholder="Email subject..." 
+                        class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Message:</label>
+                    <textarea id="composeBody" rows="7" required placeholder="Write your message here..." 
+                        class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none resize-none"></textarea>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeComposeModal()" class="glass-button px-4 py-2 rounded-xl text-xs font-medium text-gray-300">Cancel</button>
+                    <button type="submit" id="sendBtn" class="glass-button-primary px-5 py-2 rounded-xl text-xs font-semibold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-paper-plane"></i> Send Email
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- SETTINGS OAUTH MODAL -->
+    <div id="settingsModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-panel-dark w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden border border-white/20 flex flex-col">
+            <div class="px-5 py-3.5 border-b border-white/10 flex items-center justify-between bg-white/5">
+                <h3 class="font-semibold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-gear text-purple-400"></i>
+                    <span>Google OAuth Configuration</span>
+                </h3>
+                <button onclick="closeSettingsModal()" class="text-gray-400 hover:text-white p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-300 mb-1">Google OAuth Client ID:</label>
+                    <input type="text" id="clientIdInput" placeholder="YOUR_CLIENT_ID.apps.googleusercontent.com" 
+                        class="w-full glass-input rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none font-mono">
+                </div>
+
+                <div class="p-4 rounded-xl glass-panel bg-purple-950/20 text-xs text-gray-300 space-y-2 border border-purple-500/20">
+                    <p class="font-semibold text-purple-300"><i class="fa-solid fa-circle-info mr-1"></i> How to get a Google Client ID:</p>
+                    <ol class="list-decimal pl-4 space-y-1 text-gray-400">
+                        <li>Go to <a href="https://console.cloud.google.com/" target="_blank" class="text-purple-400 underline">Google Cloud Console</a>.</li>
+                        <li>Create a project and enable the <strong>Gmail API</strong>.</li>
+                        <li>Under <strong>OAuth consent screen</strong>, set user type to External and add your email as a test user.</li>
+                        <li>Under <strong>Credentials</strong> &rarr; Create <strong>OAuth 2.0 Client ID</strong> (Web Application).</li>
+                        <li>Add your GitHub Pages or local URL to <strong>Authorized JavaScript origins</strong>.</li>
+                    </ol>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 pt-2">
+                    <button type="button" onclick="saveClientId()" class="glass-button-primary px-5 py-2 rounded-xl text-xs font-semibold text-white">
+                        Save Configuration
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 glass-panel-dark px-4 py-3 rounded-xl border border-purple-500/40 text-white text-sm flex items-center gap-3 transform translate-y-20 opacity-0 transition-all duration-300 shadow-xl">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMessage">Operation completed successfully</span>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // CONFIGURATION & SCOPES
+        const SCOPES = 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.modify';
+        
+        let tokenClient;
+        let accessToken = null;
+        let currentFolder = 'INBOX';
+        let currentMessages = [];
+        let activeMessageId = null;
+
+        // LOCAL STORAGE CLIENT ID HANDLING
+        function getClientId() {
+            return localStorage.getItem('gmail_client_id') || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('clientIdInput').value = localStorage.getItem('gmail_client_id') || '';
+            setupMobileMenu();
+            initSearch();
+        });
+
+        // GOOGLE OAUTH INITIALIZATION
+        function initTokenClient() {
+            const clientId = getClientId();
+            if (!clientId || clientId.includes('YOUR_GOOGLE_CLIENT_ID')) {
+                showToast("Please configure your Google Client ID in Settings", "fa-triangle-exclamation", "text-amber-400");
+                openSettingsModal();
+                return false;
+            }
+
+            try {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: clientId,
+                    scope: SCOPES,
+                    callback: async (resp) => {
+                        if (resp.error) {
+                            showToast("Authentication error: " + resp.error, "fa-circle-xmark", "text-rose-400");
+                            return;
+                        }
+                        accessToken = resp.access_token;
+                        showToast("Successfully signed in with Google!", "fa-circle-check", "text-emerald-400");
+                        updateAuthStatus(true);
+                        await fetchUserProfile();
+                        await fetchEmails();
+                    },
+                });
+                return true;
+            } catch (err) {
+                console.error("Token Client Initialization Error:", err);
+                showToast("Failed to initialize Google Auth", "fa-circle-xmark", "text-rose-400");
+                return false;
+            }
+        }
+
+        function handleAuthClick() {
+            if (!tokenClient) {
+                if (!initTokenClient()) return;
+            }
+            tokenClient.requestAccessToken({ prompt: 'consent' });
+        }
+
+        function handleSignoutClick() {
+            if (accessToken) {
+                google.accounts.oauth2.revoke(accessToken, () => {
+                    accessToken = null;
+                    updateAuthStatus(false);
+                    showToast("Signed out successfully", "fa-right-from-bracket", "text-gray-400");
+                    document.getElementById('emailContainer').innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-64 text-gray-400 p-6 text-center">
+                            <i class="fa-solid fa-key text-4xl mb-4 text-purple-400 opacity-60"></i>
+                            <p class="text-sm font-medium text-white mb-1">Signed Out</p>
+                            <p class="text-xs text-gray-400">Click "Sign In with Google" to access your inbox.</p>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        function updateAuthStatus(isAuth) {
+            const statusBadge = document.getElementById('apiStatusBadge');
+            const loginBtn = document.getElementById('loginBtn');
+            const userProfile = document.getElementById('userProfile');
+
+            if (isAuth) {
+                statusBadge.className = "text-emerald-400 font-semibold flex items-center gap-1.5";
+                statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Connected`;
+                loginBtn.classList.add('hidden');
+                userProfile.classList.remove('hidden');
+            } else {
+                statusBadge.className = "text-amber-400 font-semibold flex items-center gap-1.5";
+                statusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Unauthenticated`;
+                loginBtn.classList.remove('hidden');
+                userProfile.classList.add('hidden');
+            }
+        }
+
+        // FETCH USER PROFILE
+        async function fetchUserProfile() {
+            try {
+                const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                const profile = await res.json();
+                document.getElementById('userEmail').innerText = profile.emailAddress;
+                document.getElementById('userName').innerText = profile.emailAddress.split('@')[0];
+                document.getElementById('userAvatar').src = `https://placehold.co/100x100/4c1d95/ffffff?text=${profile.emailAddress.charAt(0).toUpperCase()}`;
+            } catch (err) {
+                console.error("Failed to fetch profile:", err);
+            }
+        }
+
+        // FETCH EMAILS LIST FROM GMAIL API
+        async function fetchEmails(query = '') {
+            if (!accessToken) return;
+
+            const container = document.getElementById('emailContainer');
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-64 text-gray-400">
+                    <i class="fa-solid fa-spinner fa-spin text-3xl text-purple-400 mb-3"></i>
+                    <p class="text-xs">Loading live messages from Gmail...</p>
+                </div>
+            `;
+
+            let qParam = `label:${currentFolder}`;
+            if (currentFolder === 'STARRED') qParam = 'is:starred';
+            if (currentFolder === 'DRAFT') qParam = 'is:draft';
+            if (query) qParam += ` ${query}`;
+
+            try {
+                const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=20&q=${encodeURIComponent(qParam)}`, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                const data = await res.json();
+
+                if (!data.messages || data.messages.length === 0) {
+                    container.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-64 text-gray-400">
+                            <i class="fa-regular fa-folder-open text-4xl mb-3 opacity-50"></i>
+                            <p class="text-sm">No messages found in ${currentFolder}</p>
+                        </div>
+                    `;
+                    document.getElementById('emailCountDisplay').innerText = "0 emails";
+                    return;
+                }
+
+                document.getElementById('emailCountDisplay').innerText = `${data.messages.length} emails`;
+
+                // Fetch full detail headers for each message ID concurrently
+                const messagePromises = data.messages.map(msg => 
+                    fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`, {
+                        headers: { 'Authorization': `Bearer ${accessToken}` }
+                    }).then(r => r.json())
+                );
+
+                currentMessages = await Promise.all(messagePromises);
+                renderEmailList(currentMessages);
+
+            } catch (err) {
+                console.error("Error fetching messages:", err);
+                showToast("Failed to load emails", "fa-circle-xmark", "text-rose-400");
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-64 text-rose-400">
+                        <i class="fa-solid fa-triangle-exclamation text-3xl mb-2"></i>
+                        <p class="text-xs">Failed to communicate with Gmail API</p>
+                    </div>
+                `;
+            }
+        }
+
+        // RENDER EMAILS
+        function renderEmailList(messages) {
+            const container = document.getElementById('emailContainer');
+
+            container.innerHTML = messages.map(msg => {
+                const headers = msg.payload.headers;
+                const subject = getHeader(headers, 'Subject') || '(No Subject)';
+                const from = getHeader(headers, 'From') || 'Unknown Sender';
+                const date = getHeader(headers, 'Date') || '';
+                const isUnread = msg.labelIds ? msg.labelIds.includes('UNREAD') : false;
+                const isStarred = msg.labelIds ? msg.labelIds.includes('STARRED') : false;
+
+                const formattedDate = date ? new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+                const senderClean = from.replace(/<.*>/, '').trim() || from;
+
+                return `
+                    <div onclick="openEmailDetail('${msg.id}')" 
+                        class="group flex items-center gap-3 p-3.5 px-4 cursor-pointer hover:bg-white/10 transition-all ${isUnread ? 'font-semibold bg-white/5' : 'opacity-80'} ${activeMessageId === msg.id ? 'bg-purple-500/20 border-l-4 border-purple-400' : ''}">
+                        
+                        <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+                            <button onclick="toggleStar(event, '${msg.id}', ${isStarred})" class="text-xs p-1 hover:scale-125 transition-transform">
+                                <i class="${isStarred ? 'fa-solid fa-star text-yellow-400' : 'fa-regular fa-star text-gray-500 hover:text-gray-300'}"></i>
+                            </button>
+                        </div>
+
+                        <div class="w-8 h-8 rounded-full bg-purple-600/30 text-purple-200 flex items-center justify-center font-bold text-xs shrink-0 ring-1 ring-white/20">
+                            ${senderClean.charAt(0).toUpperCase()}
+                        </div>
+
+                        <div class="w-32 md:w-44 truncate text-sm text-white">${senderClean}</div>
+
+                        <div class="flex-1 min-w-0 flex items-baseline gap-2">
+                            <span class="text-sm text-white truncate">${subject}</span>
+                            <span class="text-xs text-gray-400 truncate hidden lg:inline-block">- ${msg.snippet || ''}</span>
+                        </div>
+
+                        <div class="text-xs text-gray-400 shrink-0 font-normal">${formattedDate}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // OPEN EMAIL DETAIL
+        async function openEmailDetail(id) {
+            const msg = currentMessages.find(m => m.id === id);
+            if (!msg) return;
+
+            activeMessageId = id;
+            const headers = msg.payload.headers;
+            const subject = getHeader(headers, 'Subject') || '(No Subject)';
+            const from = getHeader(headers, 'From') || '';
+            const date = getHeader(headers, 'Date') || '';
+            const isStarred = msg.labelIds ? msg.labelIds.includes('STARRED') : false;
+
+            document.getElementById('detailSubject').innerText = subject;
+            document.getElementById('detailSenderName').innerText = from.replace(/<.*>/, '').trim();
+            document.getElementById('detailSenderEmail').innerText = from;
+            document.getElementById('detailAvatarText').innerText = (from.replace(/<.*>/, '').trim() || 'G').charAt(0).toUpperCase();
+            document.getElementById('detailDate').innerText = date;
+
+            const starIcon = document.getElementById('detailStarIcon');
+            starIcon.className = isStarred ? "fa-solid fa-star text-yellow-400" : "fa-regular fa-star";
+
+            // Extract Body HTML or Plain Text
+            const bodyContent = extractEmailBody(msg.payload);
+            const iframe = document.getElementById('emailBodyIframe');
+            iframe.srcdoc = `
+                <html>
+                <head>
+                    <style>
+                        body { font-family: 'Inter', sans-serif; color: #e2e8f0; margin: 0; padding: 10px; word-wrap: break-word; }
+                        a { color: #c084fc; }
+                    </style>
+                </head>
+                <body>${bodyContent}</body>
+                </html>
+            `;
+
+            // Display Detail Panel
+            const listPanel = document.getElementById('emailListPanel');
+            const detailPanel = document.getElementById('emailDetailPanel');
+
+            if (window.innerWidth < 1024) {
+                listPanel.classList.add('hidden');
+            }
+            detailPanel.classList.remove('hidden');
+            detailPanel.classList.add('flex');
+
+            // Mark message as read via API if UNREAD
+            if (msg.labelIds && msg.labelIds.includes('UNREAD')) {
+                modifyMessageLabels(id, [], ['UNREAD']);
+            }
+        }
+
+        function closeEmailDetail() {
+            activeMessageId = null;
+            const listPanel = document.getElementById('emailListPanel');
+            const detailPanel = document.getElementById('emailDetailPanel');
+
+            listPanel.classList.remove('hidden');
+            detailPanel.classList.add('hidden');
+            detailPanel.classList.remove('flex');
+            renderEmailList(currentMessages);
+        }
+
+        // TOGGLE STAR LABEL
+        async function toggleStar(event, id, currentlyStarred) {
+            if (event) event.stopPropagation();
+            const addLabels = currentlyStarred ? [] : ['STARRED'];
+            const removeLabels = currentlyStarred ? ['STARRED'] : [];
+
+            await modifyMessageLabels(id, addLabels, removeLabels);
+            showToast(currentlyStarred ? "Unstarred email" : "Starred email", "fa-star", "text-yellow-400");
+            fetchEmails();
+        }
+
+        function toggleStarCurrentDetail() {
+            if (!activeMessageId) return;
+            const msg = currentMessages.find(m => m.id === activeMessageId);
+            if (msg) {
+                const isStarred = msg.labelIds ? msg.labelIds.includes('STARRED') : false;
+                toggleStar(null, activeMessageId, isStarred);
+            }
+        }
+
+        // TRASH EMAIL
+        async function trashCurrentDetail() {
+            if (!activeMessageId) return;
+            await modifyMessageLabels(activeMessageId, ['TRASH'], ['INBOX']);
+            showToast("Moved to Trash", "fa-trash-can", "text-rose-400");
+            closeEmailDetail();
+            fetchEmails();
+        }
+
+        // MODIFY LABELS API CALL
+        async function modifyMessageLabels(id, addLabelIds, removeLabelIds) {
+            if (!accessToken) return;
+            try {
+                await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}/modify`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ addLabelIds, removeLabelIds })
+                });
+            } catch (err) {
+                console.error("Failed to modify labels:", err);
+            }
+        }
+
+        // SEND EMAIL VIA GMAIL API
+        async function handleSendEmail(e) {
+            e.preventDefault();
+            if (!accessToken) {
+                showToast("Please sign in with Google first", "fa-circle-xmark", "text-rose-400");
+                return;
+            }
+
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Sending...`;
+
+            const to = document.getElementById('composeTo').value;
+            const subject = document.getElementById('composeSubject').value;
+            const body = document.getElementById('composeBody').value;
+
+            // Build RFC 2822 standard email message string
+            const emailRaw = [
+                `To: ${to}`,
+                `Subject: ${subject}`,
+                'Content-Type: text/html; charset=utf-8',
+                'MIME-Version: 1.0',
+                '',
+                body.replace(/\n/g, '<br>')
+            ].join('\n');
+
+            // Encode to Base64URL standard required by Gmail API
+            const base64Encoded = btoa(unescape(encodeURIComponent(emailRaw)))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+
+            try {
+                const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ raw: base64Encoded })
+                });
+
+                if (res.ok) {
+                    showToast("Email sent successfully!", "fa-paper-plane", "text-emerald-400");
+                    document.getElementById('composeForm').reset();
+                    closeComposeModal();
+                    if (currentFolder === 'SENT') fetchEmails();
+                } else {
+                    const errData = await res.json();
+                    showToast("Send failed: " + (errData.error?.message || "Unknown error"), "fa-circle-xmark", "text-rose-400");
+                }
+            } catch (err) {
+                console.error("Error sending email:", err);
+                showToast("Network error while sending email", "fa-circle-xmark", "text-rose-400");
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Send Email`;
+            }
+        }
+
+        function replyToSender() {
+            const senderEmail = document.getElementById('detailSenderEmail').innerText;
+            const subject = document.getElementById('detailSubject').innerText;
+            
+            document.getElementById('composeTo').value = senderEmail;
+            document.getElementById('composeSubject').value = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
+            openComposeModal();
+        }
+
+        // FOLDER & SEARCH NAVIGATION
+        function switchFolder(folder) {
+            currentFolder = folder;
+            document.getElementById('currentFolderName').innerText = folder;
+            
+            document.querySelectorAll('.folder-link').forEach(el => {
+                el.classList.remove('bg-white/15', 'text-white');
+                el.classList.add('text-gray-300');
+            });
+            const activeNav = document.getElementById(`nav-${folder}`);
+            if (activeNav) {
+                activeNav.classList.add('bg-white/15', 'text-white');
+            }
+
+            closeEmailDetail();
+            fetchEmails();
+        }
+
+        function refreshEmails() {
+            fetchEmails();
+            showToast("Inbox refreshed", "fa-rotate-right", "text-purple-400");
+        }
+
+        function initSearch() {
+            const searchInput = document.getElementById('searchInput');
+            const clearSearch = document.getElementById('clearSearch');
+
+            let searchDebounce;
+            searchInput.addEventListener('input', (e) => {
+                if (e.target.value.length > 0) {
+                    clearSearch.classList.remove('hidden');
+                } else {
+                    clearSearch.classList.add('hidden');
+                }
+
+                clearTimeout(searchDebounce);
+                searchDebounce = setTimeout(() => {
+                    fetchEmails(e.target.value);
+                }, 600);
+            });
+
+            clearSearch.addEventListener('click', () => {
+                searchInput.value = '';
+                clearSearch.classList.add('hidden');
+                fetchEmails();
+            });
+        }
+
+        // HELPER FUNCTIONS FOR MIME DECODING
+        function getHeader(headers, name) {
+            const header = headers.find(h => h.name.toLowerCase() === name.toLowerCase());
+            return header ? header.value : '';
+        }
+
+        function extractEmailBody(payload) {
+            if (!payload) return '<i>(Empty body)</i>';
+
+            if (payload.body && payload.body.data) {
+                return decodeBase64Url(payload.body.data);
+            }
+
+            if (payload.parts) {
+                for (let part of payload.parts) {
+                    if (part.mimeType === 'text/html' && part.body && part.body.data) {
+                        return decodeBase64Url(part.body.data);
+                    }
+                }
+                for (let part of payload.parts) {
+                    if (part.mimeType === 'text/plain' && part.body && part.body.data) {
+                        return decodeBase64Url(part.body.data).replace(/\n/g, '<br>');
+                    }
+                }
+            }
+            return '<i>(Unable to render body format)</i>';
+        }
+
+        function decodeBase64Url(base64UrlStr) {
+            let base64 = base64UrlStr.replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4) {
+                base64 += '=';
+            }
+            try {
+                return decodeURIComponent(escape(atob(base64)));
+            } catch (e) {
+                return atob(base64);
+            }
+        }
+
+        // MODAL TOGGLES
+        function openComposeModal() {
+            const modal = document.getElementById('composeModal');
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.remove('opacity-0'), 10);
+        }
+
+        function closeComposeModal() {
+            const modal = document.getElementById('composeModal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function openSettingsModal() {
+            const modal = document.getElementById('settingsModal');
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.remove('opacity-0'), 10);
+        }
+
+        function closeSettingsModal() {
+            const modal = document.getElementById('settingsModal');
+            modal.classList.add('opacity-0');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function saveClientId() {
+            const val = document.getElementById('clientIdInput').value.trim();
+            if (!val) {
+                showToast("Please enter a valid Client ID", "fa-triangle-exclamation", "text-amber-400");
+                return;
+            }
+            localStorage.setItem('gmail_client_id', val);
+            closeSettingsModal();
+            showToast("Client ID saved! Click Sign In to connect.", "fa-circle-check", "text-emerald-400");
+            initTokenClient();
+        }
+
+        function setupMobileMenu() {
+            document.getElementById('toggleSidebarMobile').addEventListener('click', () => {
+                const sidebar = document.getElementById('sidebar');
+                sidebar.classList.toggle('-translate-x-full');
+            });
+        }
+
+        function showToast(message, iconClass = "fa-circle-check", iconColor = "text-emerald-400") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.innerText = message;
+            toastIcon.className = `fa-solid ${iconClass} ${iconColor}`;
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3500);
+        }
+    </script>
+</body>
+</html>
